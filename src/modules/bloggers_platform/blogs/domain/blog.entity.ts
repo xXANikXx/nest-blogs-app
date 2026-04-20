@@ -42,7 +42,6 @@ export class Blog {
   isMembership: boolean;
   @Prop({
     type: Date,
-    nullable: true,
     default: null,
   })
   deletedAt: Date | null;

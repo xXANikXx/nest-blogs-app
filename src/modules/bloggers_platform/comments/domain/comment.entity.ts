@@ -28,7 +28,7 @@ export class Comment {
   postId: string;
 
   createdAt: Date;
-  @Prop({ type: Date, nullable: true, default: null })
+  @Prop({ type: Date, default: null })
   deletedAt: Date | null;
 
   static createComment(dto: CreateCommentDomainDto): CommentDocument {

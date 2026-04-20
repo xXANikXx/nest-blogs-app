@@ -47,7 +47,7 @@ export class User {
   @Prop({ type: PasswordRecoverySchema })
   passwordRecovery: PasswordRecovery;
   //не удаляем полностью информацию
-  @Prop({ type: Date, nullable: true })
+  @Prop({ type: Date, default: null })
   deletedAt: Date | null;
 
   private static buildUser(

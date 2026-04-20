@@ -7,6 +7,7 @@ import { User, type UserModelType } from '../domain/user.entity';
 import { CreateUserInputDto } from '../api/input-dto/users.input-dto';
 import { BcryptService } from '../../../core/adapters/bcrypt.service';
 import { InjectModel } from '@nestjs/mongoose';
+import { DomainException } from '../../../core/exceptions/domain-exception';
 
 @Injectable()
 export class UsersService {
@@ -59,8 +60,14 @@ export class UsersService {
       return Result.notFound('User not found');
     }
 
-    await this.usersRepository.delete(user); // ← передаём уже найденного пользователя
-
+    try {
+      await this.usersRepository.delete(user);
+    } catch (e) {
+      if (e instanceof DomainException) {
+        return Result.fail(e.status, e.message);
+      }
+      throw e;
+    }
     return Result.success();
   }
 }

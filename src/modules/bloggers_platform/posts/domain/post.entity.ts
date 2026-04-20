@@ -44,7 +44,6 @@ export class Post {
   createdAt: Date;
   @Prop({
     type: Date,
-    nullable: true,
     default: null,
   })
   deletedAt: Date | null;
