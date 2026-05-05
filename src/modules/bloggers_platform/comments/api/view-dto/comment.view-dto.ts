@@ -8,11 +8,6 @@ export class CommentViewDto {
     userLogin: string;
   };
   createdAt: Date;
-  likesInfo = {
-    likesCount: 0,
-    dislikesCount: 0,
-    myStatus: 'None',
-  };
 
   static mapToView(this: void, comment: CommentDocument): CommentViewDto {
     const dto = new CommentViewDto();
@@ -21,11 +16,6 @@ export class CommentViewDto {
     dto.content = comment.content;
     dto.commentatorInfo = comment.commentatorInfo;
     dto.createdAt = comment.createdAt;
-    dto.likesInfo = {
-      likesCount: 0,
-      dislikesCount: 0,
-      myStatus: 'None',
-    };
     return dto;
   }
 }
