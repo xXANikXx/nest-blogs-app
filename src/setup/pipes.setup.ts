@@ -12,9 +12,9 @@ import { DomainExceptionCode } from '../core/exceptions/domain-exception-codes';
 
 export const errorFormatter = (
   errors: ValidationError[],
-  errorMessage?: any,
+  errorMessage?: Extension[],
 ): Extension[] => {
-  const errorsForResponse = errorMessage || [];
+  const errorsForResponse: Extension[] = errorMessage || [];
 
   for (const error of errors) {
     if (!error.constraints && error.children?.length) {
@@ -23,12 +23,14 @@ export const errorFormatter = (
       const constrainKeys = Object.keys(error.constraints);
 
       for (const key of constrainKeys) {
-        errorsForResponse.push({
-          message: error.constraints[key]
-            ? `${error.constraints[key]}; Received value: ${error?.value}`
-            : '',
-          key: error.property,
-        });
+        errorsForResponse.push(
+          new Extension(
+            error.constraints[key]
+              ? `${error.constraints[key]}; Received value: ${String(error?.value)}`
+              : '',
+            error.property,
+          ),
+        );
       }
     }
   }
