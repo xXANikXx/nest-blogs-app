@@ -5,8 +5,8 @@ import {
 } from './commentatorInfoSchema';
 import { HydratedDocument, Model } from 'mongoose';
 import { DomainException } from '../../../../core/exceptions/domain-exception';
-import { ResultStatus } from '../../../../core/object-result/resultCode';
 import { CreateCommentDomainDto } from './dto/create-comment.domain.dto';
+import { DomainExceptionCode } from '../../../../core/exceptions/domain-exception-codes';
 
 export interface CommentsFilter {
   postId: string;
@@ -44,10 +44,10 @@ export class Comment {
 
   makeDeleted(): void {
     if (this.deletedAt !== null) {
-      throw new DomainException(
-        'Entity already deleted',
-        ResultStatus.InternalServerError,
-      );
+      throw new DomainException({
+        code: DomainExceptionCode.InternalServerError,
+        message: 'Entity already deleted',
+      });
     }
     this.deletedAt = new Date();
   }

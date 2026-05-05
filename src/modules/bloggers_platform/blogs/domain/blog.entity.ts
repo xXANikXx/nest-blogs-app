@@ -2,7 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Model } from 'mongoose';
 import { CreateBlogDomainDto } from './dto/create-blog.domain.dto';
 import { DomainException } from '../../../../core/exceptions/domain-exception';
-import { ResultStatus } from '../../../../core/object-result/resultCode';
+import { DomainExceptionCode } from '../../../../core/exceptions/domain-exception-codes';
 
 export interface BlogsFilter {
   name?: any;
@@ -63,10 +63,10 @@ export class Blog {
 
   makeDeleted(): void {
     if (this.deletedAt !== null) {
-      throw new DomainException(
-        'Entity already deleted',
-        ResultStatus.InternalServerError,
-      );
+      throw new DomainException({
+        code: DomainExceptionCode.InternalServerError,
+        message: 'Entity already deleted',
+      });
     }
     this.deletedAt = new Date();
   }

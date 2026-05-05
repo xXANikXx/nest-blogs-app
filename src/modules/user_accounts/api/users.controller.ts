@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { UsersService } from '../application/users.service';
 import { UsersQueryService } from '../application/users.query.service';
@@ -21,8 +22,11 @@ import { UserViewDto } from './view-dto/user.view-dto';
 import { GetUsersQueryParams } from './input-dto/get-users-query-params.input-dto';
 import { PaginatedViewDto } from '../../../core/dto/base.paginated.view-dto';
 import { CreateUserInputDto } from './input-dto/users.input-dto';
+import { handleResult } from '../../../core/object-result/handleresult';
+import { BasicAuthGuard } from '../guards/basic/basic-auth.guard';
 
 @Controller('users')
+@UseGuards(BasicAuthGuard)
 @ApiExtraModels(PaginatedViewDto, UserViewDto)
 export class UsersController {
   constructor(
@@ -34,8 +38,7 @@ export class UsersController {
   @Get(`:id`)
   async getById(@Param('id') id: string): Promise<UserViewDto> {
     const result = await this.usersQueryService.findById(id);
-    result.throwIfError();
-    return result.getDataOrThrow();
+    return handleResult(result);
   }
 
   @Get()
@@ -59,15 +62,13 @@ export class UsersController {
     @Query() query: GetUsersQueryParams,
   ): Promise<PaginatedViewDto<UserViewDto[]>> {
     const result = await this.usersQueryService.getAll(query);
-    result.throwIfError();
-    return result.getDataOrThrow();
+    return handleResult(result);
   }
 
   @Post()
   async createUser(@Body() body: CreateUserInputDto): Promise<UserViewDto> {
     const result = await this.usersService.createdByAdmin(body);
-    result.throwIfError();
-    return result.getDataOrThrow();
+    return handleResult(result);
   }
 
   @ApiParam({ name: 'id' }) //для сваггера
@@ -75,6 +76,6 @@ export class UsersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteUser(@Param('id') id: string): Promise<void> {
     const result = await this.usersService.deleteUser(id);
-    result.throwIfError();
+    handleResult(result);
   }
 }

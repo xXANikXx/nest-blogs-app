@@ -3,6 +3,8 @@ import type { UserModelType } from '../domain/user.entity';
 import { User, UserDocument } from '../domain/user.entity';
 
 import { InjectModel } from '@nestjs/mongoose';
+import { DomainException } from '../../../core/exceptions/domain-exception';
+import { DomainExceptionCode } from '../../../core/exceptions/domain-exception-codes';
 
 @Injectable()
 export class UsersRepository {
@@ -44,5 +46,18 @@ export class UsersRepository {
 
   async findByEmail(email: string): Promise<UserDocument | null> {
     return this.UserModel.findOne({ email, deletedAt: null });
+  }
+
+  async findOrNotFoundFail(id: string): Promise<UserDocument> {
+    const user = await this.findById(id.toString());
+
+    if (!user) {
+      throw new DomainException({
+        code: DomainExceptionCode.NotFound,
+        message: 'User not found',
+      });
+    }
+
+    return user;
   }
 }

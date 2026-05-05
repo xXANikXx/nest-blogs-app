@@ -23,6 +23,7 @@ import { GetPostsQueryParams } from '../../posts/api/input-dto/get-posts-query-p
 import { PostViewDto } from '../../posts/api/view-dto/post.view-dto';
 import { CreatePostByBlogInputDto } from '../../posts/api/input-dto/postsByBlogs.create-dto';
 import { PostsService } from '../../posts/application/posts.service';
+import { handleResult } from '../../../../core/object-result/handleresult';
 
 @Controller('blogs')
 export class BlogsController {
@@ -37,8 +38,7 @@ export class BlogsController {
   @Get(`:id`)
   async getById(@Param('id') id: string): Promise<BlogViewDto> {
     const result = await this.blogsQueryService.findById(id);
-    result.throwIfError();
-    return result.getDataOrThrow();
+    return handleResult(result);
   }
 
   @Get()
@@ -46,8 +46,7 @@ export class BlogsController {
     @Query() query: GetBlogsQueryParams,
   ): Promise<PaginatedViewDto<BlogViewDto[]>> {
     const result = await this.blogsQueryService.getAll(query);
-    result.throwIfError();
-    return result.getDataOrThrow();
+    return handleResult(result);
   }
 
   @ApiParam({ name: 'blogId' })
@@ -58,12 +57,11 @@ export class BlogsController {
   ): Promise<PaginatedViewDto<PostViewDto[]>> {
     // 1. Проверяем что блог существует
     const blogResult = await this.blogsQueryService.findById(blogId);
-    blogResult.throwIfError();
+    handleResult(blogResult);
 
     // 2. Получаем посты блога
     const result = await this.postsQueryService.getByBlogId(blogId, query);
-    result.throwIfError();
-    return result.getDataOrThrow();
+    return handleResult(result);
   }
 
   @ApiParam({ name: 'id' })
@@ -74,14 +72,13 @@ export class BlogsController {
     @Body() body: UpdateBlogInputDto,
   ): Promise<void> {
     const result = await this.blogsService.updateBlog(id, body);
-    result.throwIfError();
+    handleResult(result);
   }
 
   @Post()
   async createBlog(@Body() body: CreateBlogInputDto): Promise<BlogViewDto> {
     const result = await this.blogsService.createBlog(body);
-    result.throwIfError();
-    return result.getDataOrThrow();
+    return handleResult(result);
   }
 
   @ApiParam({ name: 'blogId' })
@@ -91,8 +88,7 @@ export class BlogsController {
     @Body() body: CreatePostByBlogInputDto,
   ): Promise<PostViewDto> {
     const result = await this.postsService.createPostByBlog(blogId, body);
-    result.throwIfError();
-    return result.getDataOrThrow();
+    return handleResult(result);
   }
 
   @ApiParam({ name: 'id' }) //для сваггера
@@ -100,6 +96,6 @@ export class BlogsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteBlog(@Param('id') id: string): Promise<void> {
     const result = await this.blogsService.deleteBlog(id);
-    result.throwIfError();
+    handleResult(result);
   }
 }

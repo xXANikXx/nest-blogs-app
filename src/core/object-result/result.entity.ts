@@ -1,6 +1,4 @@
 import { ResultStatus } from './resultCode';
-import { resultCodeToHttpException } from './resultCodeToHttpException';
-import { InternalServerErrorException } from '@nestjs/common';
 
 export type ExtensionType = {
   field: string | null;
@@ -53,25 +51,5 @@ export class Result<T = null> {
   ): Result<T> {
     const extensions = field ? [{ field, message: message ?? 'Error' }] : [];
     return new Result<never>(status, null, message, extensions);
-  }
-
-  // Бросает исключение если ошибка, ничего не возвращает
-  public throwIfError(): void {
-    if (this.status !== ResultStatus.Success) {
-      throw resultCodeToHttpException(
-        this.status,
-        this.message,
-        this.extensions,
-      );
-    }
-  }
-
-  public getDataOrThrow(): T {
-    if (this.data === null) {
-      throw new InternalServerErrorException(
-        'Data is null after success result',
-      );
-    }
-    return this.data;
   }
 }

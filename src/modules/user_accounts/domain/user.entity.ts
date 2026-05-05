@@ -11,7 +11,17 @@ import { HydratedDocument, Model } from 'mongoose';
 import { CreateUserDomainDto } from './dto/create-user.domain.dto';
 import { randomUUID } from 'crypto';
 import { DomainException } from '../../../core/exceptions/domain-exception';
-import { ResultStatus } from '../../../core/object-result/resultCode';
+import { DomainExceptionCode } from '../../../core/exceptions/domain-exception-codes';
+
+export const loginConstraints = {
+  minLength: 3,
+  maxLength: 10,
+};
+
+export const passwordConstraints = {
+  minLength: 6,
+  maxLength: 20,
+};
 
 export interface UsersFilter {
   $or?: { login?: any; email?: any }[];
@@ -24,16 +34,13 @@ export class User {
     type: String,
     required: true,
     unique: true,
-    minlength: 3,
-    maxlength: 100,
+    ...loginConstraints,
   })
   login: string;
   @Prop({
     type: String,
     required: true,
     unique: true,
-    minlength: 3,
-    maxlength: 100,
   })
   email: string;
   @Prop({
@@ -83,20 +90,20 @@ export class User {
       !this.passwordRecovery.recoveryCode ||
       this.passwordRecovery.recoveryCode !== code
     ) {
-      throw new DomainException(
-        'Invalid recovery code',
-        ResultStatus.BadRequest,
-      );
+      throw new DomainException({
+        code: DomainExceptionCode.PasswordRecoveryCodeExpired,
+        message: 'Invalid recovery code',
+      });
     }
 
     if (
       !this.passwordRecovery.expirationDate ||
       new Date() > this.passwordRecovery.expirationDate
     ) {
-      throw new DomainException(
-        'Recovery code expired',
-        ResultStatus.BadRequest,
-      );
+      throw new DomainException({
+        code: DomainExceptionCode.PasswordRecoveryCodeExpired, // ← специфичный код
+        message: 'Recovery code expired',
+      });
     }
 
     // Если всё хорошо — меняем состояние
@@ -105,12 +112,21 @@ export class User {
     this.passwordRecovery.expirationDate = null;
   }
 
+  generateRecoveryCode() {
+    const code = randomUUID();
+    this.passwordRecovery = {
+      recoveryCode: code,
+      expirationDate: new Date(Date.now() + 60 * 60 * 1000),
+    };
+    return code;
+  }
+
   updateConfirmationCode() {
     if (this.emailConfirmation.isConfirmed) {
-      throw new DomainException(
-        'Email already confirmed',
-        ResultStatus.BadRequest,
-      ); // Или свой класс DomainError
+      throw new DomainException({
+        code: DomainExceptionCode.BadRequest,
+        message: 'Email already confirmed', // ← правильное сообщение
+      });
     }
     this.emailConfirmation.confirmationCode = randomUUID();
     this.emailConfirmation.expirationDate = new Date(
@@ -121,26 +137,26 @@ export class User {
   confirmEmail(code: string): void {
     // 1. Правило: Нельзя подтвердить уже подтвержденный email
     if (this.emailConfirmation.isConfirmed) {
-      throw new DomainException(
-        'Email already confirmed',
-        ResultStatus.BadRequest,
-      );
+      throw new DomainException({
+        code: DomainExceptionCode.EmailNotConfirmed,
+        message: 'Email already confirmed',
+      });
     }
 
     // 2. Правило: Коды должны совпадать
     if (this.emailConfirmation.confirmationCode !== code) {
-      throw new DomainException(
-        'Invalid confirmation code',
-        ResultStatus.BadRequest,
-      );
+      throw new DomainException({
+        code: DomainExceptionCode.BadRequest,
+        message: 'Invalid confirmation code',
+      });
     }
 
     // 3. Правило: Срок жизни кода не должен истечь
     if (new Date() > this.emailConfirmation.expirationDate) {
-      throw new DomainException(
-        'Confirmation code expired',
-        ResultStatus.BadRequest,
-      );
+      throw new DomainException({
+        code: DomainExceptionCode.ConfirmationCodeExpired,
+        message: 'Confirmation code expired',
+      });
     }
 
     // Все проверки пройдены — меняем состояние
@@ -149,10 +165,10 @@ export class User {
 
   makeDeleted() {
     if (this.deletedAt !== null) {
-      throw new DomainException(
-        'Entity already deleted',
-        ResultStatus.InternalServerError,
-      );
+      throw new DomainException({
+        code: DomainExceptionCode.InternalServerError,
+        message: 'Entity already deleted',
+      });
     }
     this.deletedAt = new Date();
   }

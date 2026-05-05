@@ -1,10 +1,25 @@
-import { ResultStatus } from '../object-result/resultCode';
+import { DomainExceptionCode } from './domain-exception-codes';
+
+export class Extension {
+  constructor(
+    public message: string,
+    public key: string,
+  ) {}
+}
 
 export class DomainException extends Error {
-  constructor(
-    public readonly message: string,
-    public readonly status: ResultStatus,
-  ) {
-    super(message);
+  message: string;
+  code: DomainExceptionCode;
+  extensions: Extension[];
+
+  constructor(errorInfo: {
+    code: DomainExceptionCode;
+    message: string;
+    extensions?: Extension[];
+  }) {
+    super(errorInfo.message);
+    this.message = errorInfo.message;
+    this.code = errorInfo.code;
+    this.extensions = errorInfo.extensions || [];
   }
 }

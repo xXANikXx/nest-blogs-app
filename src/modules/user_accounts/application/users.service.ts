@@ -8,6 +8,7 @@ import { CreateUserInputDto } from '../api/input-dto/users.input-dto';
 import { BcryptService } from '../../../core/adapters/bcrypt.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { DomainException } from '../../../core/exceptions/domain-exception';
+import { domainExceptionCodeToResultStatus } from '../../../core/object-result/domain-exception-code.mapper';
 
 @Injectable()
 export class UsersService {
@@ -64,9 +65,11 @@ export class UsersService {
       await this.usersRepository.delete(user);
     } catch (e) {
       if (e instanceof DomainException) {
-        return Result.fail(e.status, e.message);
+        return Result.fail(
+          domainExceptionCodeToResultStatus(e.code),
+          e.message,
+        );
       }
-      throw e;
     }
     return Result.success();
   }

@@ -21,6 +21,7 @@ import { CreatePostInputDto } from './input-dto/posts.create-dto';
 import { CommentsQueryService } from '../../comments/application/comments.query.service';
 import { GetCommentsQueryParams } from '../../comments/api/input-dto/get-comments-query-params.input-dto';
 import { CommentViewDto } from '../../comments/api/view-dto/comment.view-dto';
+import { handleResult } from '../../../../core/object-result/handleresult';
 
 @Controller('posts')
 export class PostsController {
@@ -34,8 +35,7 @@ export class PostsController {
   @Get(`:id`)
   async getById(@Param('id') id: string): Promise<PostViewDto> {
     const result = await this.postsQueryService.findById(id);
-    result.throwIfError();
-    return result.getDataOrThrow();
+    return handleResult(result);
   }
 
   @Get()
@@ -43,8 +43,7 @@ export class PostsController {
     @Query() query: GetPostsQueryParams,
   ): Promise<PaginatedViewDto<PostViewDto[]>> {
     const result = await this.postsQueryService.getAll(query);
-    result.throwIfError();
-    return result.getDataOrThrow();
+    return handleResult(result);
   }
 
   @ApiParam({ name: `id` })
@@ -55,14 +54,13 @@ export class PostsController {
     @Body() body: UpdatePostInputDto,
   ): Promise<void> {
     const result = await this.postsService.updatePost(id, body);
-    result.throwIfError();
+    handleResult(result);
   }
 
   @Post()
   async createPost(@Body() body: CreatePostInputDto): Promise<PostViewDto> {
     const result = await this.postsService.createPost(body);
-    result.throwIfError();
-    return result.getDataOrThrow();
+    return handleResult(result);
   }
 
   @ApiParam({ name: `id` })
@@ -70,7 +68,7 @@ export class PostsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async deletePost(@Param('id') id: string): Promise<void> {
     const result = await this.postsService.deletePost(id);
-    result.throwIfError();
+    handleResult(result);
   }
 
   @ApiParam({ name: `postId` })
@@ -81,12 +79,10 @@ export class PostsController {
   ): Promise<PaginatedViewDto<CommentViewDto[]>> {
     // 1. Проверяем существование поста
     const postResult = await this.postsQueryService.findById(postId);
-    postResult.throwIfError(); // ← если нет поста — 404
-
+    handleResult(postResult); // ← если нет поста — 404
     // 2. Получаем комментарии
     const result = await this.commentsQueryService.getByPostId(postId, query);
-    result.throwIfError();
-    return result.getDataOrThrow();
+    return handleResult(result);
   }
 
   // @Get(':postId/comments')
