@@ -103,6 +103,7 @@ export class AuthService {
         return Result.fail(
           domainExceptionCodeToResultStatus(e.code),
           e.message,
+          'code',
         );
       }
       throw e;
@@ -115,7 +116,7 @@ export class AuthService {
   async emailResending(email: string): Promise<Result> {
     const user = await this.usersRepository.findByEmail(email);
     if (!user) {
-      return Result.badRequest('Invalid confirmation code', 'code');
+      return Result.badRequest('User not found', 'email');
     }
     try {
       user.updateConfirmationCode();
@@ -124,6 +125,7 @@ export class AuthService {
         return Result.fail(
           domainExceptionCodeToResultStatus(e.code),
           e.message,
+          'email',
         );
       }
       throw e;

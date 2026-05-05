@@ -17,6 +17,15 @@ export class DomainHttpExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     const status = this.mapToHttpStatus(exception.code);
+    if (
+      exception.code === DomainExceptionCode.ValidationError ||
+      exception.extensions.length > 0
+    ) {
+      response.status(status).json({
+        errorsMessages: exception.extensions,
+      });
+      return;
+    }
     const responseBody = this.buildResponseBody(exception, request.url);
 
     response.status(status).json(responseBody);
