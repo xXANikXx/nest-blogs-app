@@ -16,6 +16,7 @@ export class AllHttpExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
+    console.error('AllHttpExceptionsFilter caught:', exception);
     //Если сработал этот фильтр, то пользователю улетит 500я ошибка
     const message =
       exception instanceof Error
