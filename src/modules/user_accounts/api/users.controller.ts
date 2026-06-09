@@ -10,72 +10,54 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { UsersService } from '../application/users.service';
-import { UsersQueryService } from '../application/users.query.service';
-import {
-  ApiExtraModels,
-  ApiOkResponse,
-  ApiParam,
-  getSchemaPath,
-} from '@nestjs/swagger';
-import { UserViewDto } from './view-dto/user.view-dto';
+import { BasicAuthGuard } from '../guards/basic/basic-auth.guard';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { GetUsersQueryParams } from './input-dto/get-users-query-params.input-dto';
 import { PaginatedViewDto } from '../../../core/dto/base.paginated.view-dto';
-import { CreateUserInputDto } from './input-dto/users.input-dto';
+import { UserViewDto } from './view-dto/user.view-dto';
+import { GetUsersQuery } from '../application/queries/get.users.query-handler';
+import { Result } from '../../../core/object-result/result.entity';
 import { handleResult } from '../../../core/object-result/handleresult';
-import { BasicAuthGuard } from '../guards/basic/basic-auth.guard';
+import { CreateUserInputDto } from './input-dto/users.input-dto';
+import { CreateUserCommand } from '../application/usecases/admin/create-user.usecase';
+import { DeleteUserCommand } from '../application/usecases/admin/delete-user.usecase';
 
 @Controller('users')
 @UseGuards(BasicAuthGuard)
-@ApiExtraModels(PaginatedViewDto, UserViewDto)
 export class UsersController {
   constructor(
-    private usersService: UsersService,
-    private usersQueryService: UsersQueryService,
+    private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
   ) {}
 
-  @ApiParam({ name: `id` })
-  @Get(`:id`)
-  async getById(@Param('id') id: string): Promise<UserViewDto> {
-    const result = await this.usersQueryService.findById(id);
-    return handleResult(result);
-  }
-
   @Get()
-  @ApiOkResponse({
-    description: 'Return list with pagination',
-    schema: {
-      allOf: [
-        { $ref: getSchemaPath(PaginatedViewDto) }, // Берем структуру пагинации
-        {
-          properties: {
-            items: {
-              type: 'array',
-              items: { $ref: getSchemaPath(UserViewDto) }, // Уточняем, что в items массив UserViewDto
-            },
-          },
-        },
-      ],
-    },
-  })
   async getAll(
     @Query() query: GetUsersQueryParams,
   ): Promise<PaginatedViewDto<UserViewDto[]>> {
-    const result = await this.usersQueryService.getAll(query);
+    // Исправлен синтаксис generic-параметров вызова <...>
+    const result = await this.queryBus.execute<
+      GetUsersQuery,
+      Result<PaginatedViewDto<UserViewDto[]>>
+    >(new GetUsersQuery(query));
     return handleResult(result);
   }
 
   @Post()
   async createUser(@Body() body: CreateUserInputDto): Promise<UserViewDto> {
-    const result = await this.usersService.createdByAdmin(body);
+    // Исправлен синтаксис generic-параметров вызова <...>
+    const result = await this.commandBus.execute<
+      CreateUserCommand,
+      Result<UserViewDto>
+    >(new CreateUserCommand(body));
     return handleResult(result);
   }
 
-  @ApiParam({ name: 'id' }) //для сваггера
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteUser(@Param('id') id: string): Promise<void> {
-    const result = await this.usersService.deleteUser(id);
+    const result = await this.commandBus.execute<DeleteUserCommand, Result>(
+      new DeleteUserCommand(id),
+    );
     handleResult(result);
   }
 }

@@ -4,7 +4,7 @@ import { Result } from '../../../../core/object-result/result.entity';
 import { BlogViewDto } from '../api/view-dto/blog.view-dto';
 import { CreateBlogDomainDto } from '../domain/dto/create-blog.domain.dto';
 import { Blog, type BlogModelType } from '../domain/blog.entity';
-import { CreateBlogInputDto } from '../api/input-dto/blogs.input-dto';
+import { CreateBlogInputDto } from '../api/input-dto/blogs.create.input-dto';
 import { UpdateBlogInputDto } from '../api/input-dto/blogs.update-dto';
 import { InjectModel } from '@nestjs/mongoose';
 

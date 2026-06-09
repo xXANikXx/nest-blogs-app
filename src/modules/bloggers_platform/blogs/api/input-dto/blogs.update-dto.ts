@@ -1,14 +1,13 @@
-import { IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
+import { IsNotEmpty, IsUrl, MaxLength } from 'class-validator';
+import { IsStringWithTrim } from '../../../../../core/decorators/validation/is-string-with-trim';
 
 export class UpdateBlogInputDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(15)
+  @IsStringWithTrim(1, 15)
+  @IsNotEmpty()
   name: string;
 
-  @IsString()
-  @MinLength(1)
-  @MaxLength(500)
+  @IsStringWithTrim(1, 500)
+  @IsNotEmpty()
   description: string;
 
   @IsUrl()

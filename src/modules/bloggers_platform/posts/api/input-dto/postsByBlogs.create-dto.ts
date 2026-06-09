@@ -1,18 +1,12 @@
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { IsStringWithTrim } from '../../../../../core/decorators/validation/is-string-with-trim';
 
 export class CreatePostByBlogInputDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(30)
+  @IsStringWithTrim(1, 30)
   title: string;
 
-  @IsString()
-  @MinLength(1)
-  @MaxLength(100)
+  @IsStringWithTrim(1, 100)
   shortDescription: string;
 
-  @IsString()
-  @MinLength(1)
-  @MaxLength(500)
+  @IsStringWithTrim(1, 500)
   content: string;
 }

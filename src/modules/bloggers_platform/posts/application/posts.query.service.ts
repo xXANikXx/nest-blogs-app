@@ -11,26 +11,35 @@ export class PostsQueryService {
 
   async getAll(
     query: GetPostsQueryParams,
+    userId: string | null = null,
   ): Promise<Result<PaginatedViewDto<PostViewDto[]>>> {
-    const data = await this.postsQueryRepository.getAll(query);
+    const data = await this.postsQueryRepository.getAll(query, userId);
     return Result.success(data);
   }
 
-  async findById(id: string): Promise<Result<PostViewDto>> {
-    const post = await this.postsQueryRepository.findById(id);
+  async findById(
+    id: string,
+    userId: string | null = null,
+  ): Promise<Result<PostViewDto>> {
+    const post = await this.postsQueryRepository.findById(id, userId); // ← передай userId
 
     if (!post) {
       return Result.notFound('Post not found');
     }
 
-    return Result.success(PostViewDto.mapToView(post));
+    return Result.success(post);
   }
 
   async getByBlogId(
     blogId: string,
     query: GetPostsQueryParams,
+    userId: string | null = null,
   ): Promise<Result<PaginatedViewDto<PostViewDto[]>>> {
-    const data = await this.postsQueryRepository.getByBlogId(blogId, query);
+    const data = await this.postsQueryRepository.getByBlogId(
+      blogId,
+      query,
+      userId,
+    );
     return Result.success(data);
   }
 }

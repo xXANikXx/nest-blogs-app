@@ -42,10 +42,26 @@ export class Comment {
     return comment as CommentDocument;
   }
 
-  makeDeleted(): void {
+  updateContent(content: string, userId: string): void {
+    if (this.commentatorInfo.userId !== userId) {
+      throw new DomainException({
+        code: DomainExceptionCode.Forbidden,
+        message: 'You are not allowed to edit this comment',
+      });
+    }
+    this.content = content;
+  }
+
+  makeDeleted(userId: string): void {
+    if (this.commentatorInfo.userId !== userId) {
+      throw new DomainException({
+        code: DomainExceptionCode.Forbidden,
+        message: 'You are not allowed to delete this comment',
+      });
+    }
     if (this.deletedAt !== null) {
       throw new DomainException({
-        code: DomainExceptionCode.InternalServerError,
+        code: DomainExceptionCode.BadRequest,
         message: 'Entity already deleted',
       });
     }

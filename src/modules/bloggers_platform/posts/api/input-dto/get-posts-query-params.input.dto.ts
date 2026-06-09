@@ -1,6 +1,9 @@
-import { PostsSortBy } from './posts-sort-by';
+import { IsEnum, IsOptional } from 'class-validator';
 import { BaseQueryParams } from '../../../../../core/dto/base.paginated-params.input-dto';
+import { PostsSortBy } from './posts-sort-by';
 
 export class GetPostsQueryParams extends BaseQueryParams {
-  sortBy = PostsSortBy.CreatedAt;
+  @IsEnum(PostsSortBy)
+  @IsOptional()
+  sortBy: PostsSortBy = PostsSortBy.CreatedAt;
 }

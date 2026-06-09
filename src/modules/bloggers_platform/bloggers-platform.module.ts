@@ -16,7 +16,25 @@ import { Post, PostSchema } from './posts/domain/post.entity';
 import { Comment, CommentSchema } from './comments/domain/comment.entity';
 import { CommentsQueryRepository } from './comments/infrastructure/query/comments.query-repository';
 import { CommentsController } from './comments/api/comments.controller';
-import { CommentsQueryService } from './comments/application/comments.query.service';
+import { CreateCommentUseCase } from './comments/application/usecase/create-comment.use-case';
+import { GetCommentsByPostIdQueryHandler } from './comments/application/queries/get-comments-by-post.use-case';
+import { GetCommentByIdHandler } from './comments/application/queries/get-comment-by-id.use-case';
+import { UpdateCommentUseCase } from './comments/application/usecase/update-comment.use-case';
+import { Like, LikeSchema } from './likes/domain/like.entity';
+import { CommentsRepository } from './comments/infrastructure/comments.repository';
+import { LikesRepository } from './likes/infrastructure/likes.repository';
+import { UpdateCommentLikeStatusUseCase } from './comments/application/usecase/update-comments-like-status.usecase';
+import { UpdatePostLikeStatusUseCase } from './posts/application/usecases/update-post-like-status.usecase';
+import { DeleteCommentUseCase } from './comments/application/usecase/delete-comment.use-case';
+
+const commandHandlers = [
+  CreateCommentUseCase,
+  UpdateCommentUseCase,
+  UpdatePostLikeStatusUseCase,
+  UpdateCommentLikeStatusUseCase,
+  DeleteCommentUseCase,
+];
+const queryHandlers = [GetCommentByIdHandler, GetCommentsByPostIdQueryHandler];
 
 @Module({
   imports: [
@@ -24,10 +42,13 @@ import { CommentsQueryService } from './comments/application/comments.query.serv
       { name: Blog.name, schema: BlogSchema },
       { name: Post.name, schema: PostSchema },
       { name: Comment.name, schema: CommentSchema },
+      { name: Like.name, schema: LikeSchema },
     ]),
   ],
   controllers: [BlogsController, PostsController, CommentsController],
   providers: [
+    ...commandHandlers,
+    ...queryHandlers,
     BlogsService,
     BlogsQueryService,
     BlogsRepository,
@@ -38,7 +59,8 @@ import { CommentsQueryService } from './comments/application/comments.query.serv
     PostsRepository,
     PostsQueryRepository,
     CommentsQueryRepository,
-    CommentsQueryService,
+    CommentsRepository,
+    LikesRepository,
   ],
   exports: [BlogsExternalQueryRepository],
 })

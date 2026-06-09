@@ -1,25 +1,22 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 import { appSetup } from './setup/app.setup';
+import { initAppModule } from './init-app-module';
+import { CoreConfig } from './core/core.config';
 
 async function bootstrap() {
-  try {
-    const app = await NestFactory.create(AppModule);
+  const DynamicAppModule = await initAppModule();
+  // создаём на основе донастроенного модуля наше приложение
+  const app = await NestFactory.create(DynamicAppModule);
 
-    appSetup(app);
+  const coreConfig = app.get<CoreConfig>(CoreConfig);
 
-    const PORT = process.env.PORT || 5001; //TODO: move to configService. will be in the following lessons
+  appSetup(app, coreConfig.isSwaggerEnabled); //глобальные настройки приложения
 
-    await app.listen(PORT, () => {
-      console.log('Server is running on port ' + PORT);
-    });
-  } catch (err) {
-    console.error('Bootstrap failed', err);
-    process.exit(1);
-  }
+  const port = coreConfig.port;
+
+  await app.listen(port);
+  console.log('App starting listen port: ', port);
+  console.log('NODE_ENV: ', coreConfig.env);
 }
 
-bootstrap().catch((err) => {
-  console.error('Unhandled bootstrap error', err);
-  process.exit(1);
-});
+void bootstrap();

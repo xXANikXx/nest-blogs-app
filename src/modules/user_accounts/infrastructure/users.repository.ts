@@ -21,11 +21,6 @@ export class UsersRepository {
     await user.save();
   }
 
-  async delete(user: UserDocument): Promise<void> {
-    user.makeDeleted();
-    await this.save(user);
-  }
-
   async findByConfirmationCode(code: string): Promise<UserDocument | null> {
     return this.UserModel.findOne({
       'emailConfirmation.confirmationCode': code,
