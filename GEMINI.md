@@ -15,6 +15,7 @@ Currently migrating to CQRS/UseCase architecture.
 - **Validation**: class-validator + class-transformer
 - **Testing**: Jest + Supertest (E2E tests)
 - **Email**: @nestjs-modules/mailer (Gmail SMTP)
+- **Config**: @nestjs/config with class-validator validation
 
 ## Architecture
 
@@ -47,6 +48,7 @@ user_accounts/ # Users + Auth module
 bloggers_platform/ # Blogs + Posts + Comments
 notifications/ # Email service
 testing/ # Test data cleanup
+setup/ # App bootstrap & configuration validation utilities
 
 ### Layer Architecture (per module)
 
@@ -70,34 +72,40 @@ external-query/ # Cross-module communication
 
 ## Key Patterns & Conventions
 
-### 1. Result Object Pattern
+### 1. Two-Stage Configuration Bootstrap
+
+We use a robust configuration system that ensures all environment variables are validated before the application starts.
+
+- **Stage 1 (Validation Context):** `initAppModule()` creates a temporary application context using `InitConfigModule`. This context reads `.env` files and validates them using `class-validator` in `CoreConfig`, `UserAccountsConfig`, etc.
+- **Stage 2 (App Bootstrap):** The validated `CoreConfig` is passed into `AppModule.forRoot(coreConfig)`, which then bootstraps the main application.
+
+```typescript
+// init-app-module.ts
+const appContext = await NestFactory.createApplicationContext(InitConfigModule);
+const coreConfig = appContext.get<CoreConfig>(CoreConfig);
+await appContext.close();
+return AppModule.forRoot(coreConfig);
+```
+
+### 2. Result Object Pattern
 
 Used between service and controller layers:
 
 ```typescript
 // Service returns Result
-async
-createUser(dto
-:
-CreateUserInputDto
-):
-Promise < Result < UserViewDto >> {
-  if(exists) return Result.badRequest('Already exists', 'field');
+async createUser(dto: CreateUserInputDto): Promise<Result<UserViewDto>> {
+  if (exists) return Result.badRequest('Already exists', 'field');
   return Result.success(UserViewDto.mapToView(user));
 }
 
 // Controller uses handleResult utility
-async
-create(@Body()
-body: CreateUserInputDto
-):
-Promise < UserViewDto > {
+async create(@Body() body: CreateUserInputDto): Promise<UserViewDto> {
   const result = await this.usersService.createUser(body);
   return handleResult(result);
 }
 ```
 
-### 2. DomainException Pattern
+### 3. DomainException Pattern
 
 Used in domain layer instead of HTTP exceptions:
 
@@ -119,7 +127,7 @@ try {
 }
 ```
 
-### 3. Three Exception Filters
+### 4. Three Exception Filters
 
 Registered in AppModule via APP_FILTER (order matters - reverse application):
 
@@ -135,29 +143,24 @@ providers: [
 ],
 ```
 
-### 4. Soft Delete
+### 5. Soft Delete
 
 Never physically delete documents:
 
 ```typescript
 // Entity
-makeDeleted()
-{
+makeDeleted() {
   if (this.deletedAt !== null) throw new DomainException({ ... });
   this.deletedAt = new Date();
 }
 
 // All queries filter deleted documents
-findById(id
-:
-string
-)
-{
+findById(id: string) {
   return this.Model.findOne({ _id: id, deletedAt: null });
 }
 ```
 
-### 5. Creating Documents via Model (IMPORTANT)
+### 6. Creating Documents via Model (IMPORTANT)
 
 Always use injected Mongoose model, never call static methods on class directly:
 
@@ -169,70 +172,9 @@ const newUser = this.UserModel.createdByAdmin(domainDto);
 const newUser = User.createdByAdmin(domainDto);
 ```
 
-### 6. CQRS Migration (IN PROGRESS)
+### 7. CQRS Migration (IN PROGRESS)
 
-Migrating from service pattern to use-case pattern:
-
-**Target structure:**
-
-```typescript
-// Command (write operation)
-export class CreateBlogCommand {
-  constructor(public readonly dto: ICreateBlog) {
-  }
-}
-
-// UseCase handler
-@CommandHandler(CreateBlogCommand)
-export class CreateBlogUseCase implements ICommandHandler<CreateBlogCommand> {
-  constructor(private blogsRepository: BlogsRepository) {
-  }
-
-  async execute(command: CreateBlogCommand): Promise<Result<BlogViewDto>> {
-    // business logic here
-  }
-}
-
-// Query
-export class GetBlogsQuery {
-  constructor(public readonly params: GetBlogsQueryParams) {
-  }
-}
-
-// Query handler
-@QueryHandler(GetBlogsQuery)
-export class GetBlogsQueryHandler implements IQueryHandler<GetBlogsQuery> {
-  constructor(private blogsQueryRepository: BlogsQueryRepository) {
-  }
-
-  async execute(query: GetBlogsQuery): Promise<Result<PaginatedViewDto<BlogViewDto[]>>> {
-    // read logic here
-  }
-}
-```
-
-**Controller with CQRS:**
-
-```typescript
-
-@Controller('blogs')
-export class BlogsController {
-  constructor(private commandBus: CommandBus, private queryBus: QueryBus) {
-  }
-
-  @Post()
-  async createBlog(@Body() body: CreateBlogInputDto): Promise<BlogViewDto> {
-    const result = await this.commandBus.execute(new CreateBlogCommand(body));
-    return handleResult(result);
-  }
-
-  @Get()
-  async getAll(@Query() query: GetBlogsQueryParams): Promise<PaginatedViewDto<BlogViewDto[]>> {
-    const result = await this.queryBus.execute(new GetBlogsQuery(query));
-    return handleResult(result);
-  }
-}
-```
+Migrating from service pattern to use-case pattern. Modules like `Comments` and parts of `Auth` are already fully using CQRS.
 
 ## DomainExceptionCode Enum
 
@@ -254,19 +196,21 @@ export enum DomainExceptionCode {
 
 ## Authentication
 
+### Refresh Token & Sessions
+
+Implemented using a secure `refreshToken` in an `httpOnly` cookie.
+- `POST /api/auth/login` — issues `accessToken` (body) and `refreshToken` (cookie).
+- `POST /api/auth/refresh-token` — rotates tokens.
+- `POST /api/auth/logout` — invalidates the session and clears the cookie.
+- Device tracking is implemented via `Sessions` entity.
+
 ### Guard Types
 
 ```typescript
-@UseGuards(JwtAuthGuard)         // Required JWT - throws 401
-@UseGuards(JwtOptionalAuthGuard) // Optional JWT - returns null if no token
-@UseGuards(BasicAuthGuard)       // Basic auth for admin endpoints
-```
-
-### Parameter Decorators
-
-```typescript
-@ExtractUserFromRequest()          // Required user - throws if missing
-@ExtractUserIfExistsFromRequest()  // Optional user - returns null
+@UseGuards(JwtAuthGuard)          // Required JWT - throws 401
+@UseGuards(JwtOptionalAuthGuard)  // Optional JWT - returns null if no token
+@UseGuards(BasicAuthGuard)        // Basic auth for admin endpoints
+@UseGuards(RefreshTokenAuthGuard) // Refresh token validation
 ```
 
 ### @Public() Decorator
@@ -274,18 +218,15 @@ export enum DomainExceptionCode {
 Used with BasicAuthGuard to skip auth on specific routes:
 
 ```typescript
-
 @Controller('blogs')
 @UseGuards(BasicAuthGuard)
 export class BlogsController {
   @Public()
   @Get() // No auth required
-  getAll() {
-  }
+  getAll() {}
 
   @Post() // Requires Basic auth
-  createBlog() {
-  }
+  createBlog() {}
 }
 ```
 
@@ -306,7 +247,7 @@ export class BlogsController {
 - `POST /api/blogs` — Basic Auth
 - `PUT /api/blogs/:id` — Basic Auth
 - `DELETE /api/blogs/:id` — Basic Auth
-- `POST /api/blogs/:blogId/posts` — Basic Auth
+- `POST /api/blogs/:blogId/posts` — create post for blog (Basic Auth)
 
 ### Posts
 
@@ -316,15 +257,21 @@ export class BlogsController {
 - `POST /api/posts` — Basic Auth
 - `PUT /api/posts/:id` — Basic Auth
 - `DELETE /api/posts/:id` — Basic Auth
+- `PUT /api/posts/:postId/like-status` — update post like status (JWT required)
+- `POST /api/posts/:postId/comments` — create comment for post (JWT required)
 
 ### Comments
 
 - `GET /api/comments/:id` — public
-- (More endpoints coming - JWT required)
+- `PUT /api/comments/:id` — JWT required
+- `DELETE /api/comments/:id` — JWT required
+- `PUT /api/comments/:id/like-status` — update comment like status (JWT required)
 
 ### Auth
 
-- `POST /api/auth/login` — Local strategy
+- `POST /api/auth/login` — issues tokens
+- `POST /api/auth/refresh-token` — rotates tokens
+- `POST /api/auth/logout` — clears session
 - `GET /api/auth/me` — JWT required
 - `POST /api/auth/registration` — public
 - `POST /api/auth/registration-confirmation` — public
@@ -332,18 +279,20 @@ export class BlogsController {
 - `POST /api/auth/password-recovery` — public
 - `POST /api/auth/new-password` — public
 
+### Security Devices (Refresh Token required)
+
+- `GET /api/security/devices` — list all active sessions
+- `DELETE /api/security/devices` — terminate all other sessions
+- `DELETE /api/security/devices/:deviceId` — terminate specific session
+
 ### Testing
 
 - `DELETE /api/testing/all-data` — clear all data (test env only)
 
 ## Planned Features
 
-- [ ] CQRS/UseCase migration (IN PROGRESS)
-- [ ] Likes for posts and comments (JWT required)
-- [ ] JWT Refresh token
-- [ ] Comments CRUD (JWT required)
-- [ ] Rate limiting (already configured via @nestjs/throttler)
-- [ ] ConfigModule for env variables (lesson 16)
+- [x] CQRS/UseCase migration (COMPLETED)
+- [x] Security Devices implementation (COMPLETED)
 - [ ] E2E tests expansion
 
 ## Coding Conventions
@@ -393,13 +342,16 @@ users-test-manager.ts
 auth-test-manager.ts
 blogs-test-manager.ts
 posts-test-manager.ts
-comments-test-manager.ts
+comments-auth-manager.ts
 mock/
 email-service.mock.ts # Mock email (no real sending)
 blogs/
 blogs.e2e-spec.ts
 users/
 users.e2e-spec.ts
+auth.e2e-spec.ts
+posts.e2e-spec.ts
+comments.e2e-spec.ts
 
 ### Test Conventions
 

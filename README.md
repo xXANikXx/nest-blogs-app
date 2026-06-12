@@ -1,98 +1,389 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Project: NestJS Blog Platform
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Overview
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+A NestJS REST API application for a blogging platform with users, blogs, posts,
+and comments.
+Currently migrating to CQRS/UseCase architecture.
 
-## Description
+## Tech Stack
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- **Framework**: NestJS 11.0.16
+- **Database**: MongoDB with Mongoose
+- **Language**: TypeScript
+- **Auth**: Passport.js (JWT + Local + Basic strategies)
+- **Validation**: class-validator + class-transformer
+- **Testing**: Jest + Supertest (E2E tests)
+- **Email**: @nestjs-modules/mailer (Gmail SMTP)
+- **Config**: @nestjs/config with class-validator validation
 
-## Project setup
+## Architecture
 
-```bash
-$ pnpm install
+### Module Structure
+
+src/
+core/ # Global shared functionality
+adapters/
+bcrypt.service.ts # Password hashing
+decorators/
+transform/trim.ts # Custom trim decorator
+validation/ # Custom validation decorators
+dto/
+base.paginated-params.input-dto.ts
+base.paginated.view-dto.ts
+exceptions/
+domain-exception.ts # DomainException class
+domain-exception-codes.ts # DomainExceptionCode enum
+filters/
+all-exception.filter.ts
+domain-exception.filter.ts
+http-exception.filter.ts
+object-result/
+result.entity.ts # Result<T> pattern
+resultCode.ts # ResultStatus enum
+handleResult.ts # Controller utility
+domain-exception-code.mapper.ts
+modules/
+user_accounts/ # Users + Auth module
+bloggers_platform/ # Blogs + Posts + Comments
+notifications/ # Email service
+testing/ # Test data cleanup
+setup/ # App bootstrap & configuration validation utilities
+
+### Layer Architecture (per module)
+
+api/
+input-dto/ # Request DTOs (validation + swagger)
+view-dto/ # Response DTOs
+controller.ts # HTTP layer
+application/
+use-cases/ # Business logic (CQRS - IN PROGRESS)
+queries/ # Read operations (CQRS - IN PROGRESS)
+service.ts # Legacy services (being replaced by use-cases)
+domain/
+entity.ts # Mongoose schema + business rules
+interfaces/ # Contracts between layers
+dto/ # Domain DTOs
+infrastructure/
+repository.ts # Write operations
+query/
+query-repository.ts # Read operations
+external-query/ # Cross-module communication
+
+## Key Patterns & Conventions
+
+### 1. Two-Stage Configuration Bootstrap
+
+We use a robust configuration system that ensures all environment variables are
+validated before the application starts.
+
+- **Stage 1 (Validation Context):** `initAppModule()` creates a temporary
+  application context using `InitConfigModule`. This context reads `.env` files
+  and validates them using `class-validator` in `CoreConfig`,
+  `UserAccountsConfig`, etc.
+- **Stage 2 (App Bootstrap):** The validated `CoreConfig` is passed into
+  `AppModule.forRoot(coreConfig)`, which then bootstraps the main application.
+
+```typescript
+// init-app-module.ts
+const appContext = await NestFactory.createApplicationContext(InitConfigModule);
+const coreConfig = appContext.get<CoreConfig>(CoreConfig);
+await appContext.close();
+return AppModule.forRoot(coreConfig);
 ```
 
-## Compile and run the project
+### 2. Result Object Pattern
 
-```bash
-# development
-$ pnpm run start
+Used between service and controller layers:
 
-# watch mode
-$ pnpm run start:dev
+```typescript
+// Service returns Result
+async
+createUser(dto
+:
+CreateUserInputDto
+):
+Promise < Result < UserViewDto >> {
+  if(exists) return Result.badRequest('Already exists', 'field');
+  return Result.success(UserViewDto.mapToView(user));
+}
 
-# production mode
-$ pnpm run start:prod
+// Controller uses handleResult utility
+async
+create(@Body()
+body: CreateUserInputDto
+):
+Promise < UserViewDto > {
+  const result = await this.usersService.createUser(body);
+  return handleResult(result);
+}
 ```
 
-## Run tests
+### 3. DomainException Pattern
 
-```bash
-# unit tests
-$ pnpm run test
+Used in domain layer instead of HTTP exceptions:
 
-# e2e tests
-$ pnpm run test:e2e
+```typescript
+// Entity throws DomainException
+throw new DomainException({
+  code: DomainExceptionCode.BadRequest,
+  message: 'Email already confirmed',
+});
 
-# test coverage
-$ pnpm run test:cov
+// Service catches and converts to Result
+try {
+  user.confirmEmail(code);
+} catch (e) {
+  if (e instanceof DomainException) {
+    return Result.fail(domainExceptionCodeToResultStatus(e.code), e.message);
+  }
+  throw e;
+}
 ```
 
-## Deployment
+### 4. Three Exception Filters
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Registered in AppModule via APP_FILTER (order matters - reverse application):
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+```typescript
+// Applied in reverse order:
+// 1st: DomainHttpExceptionsFilter  → catches DomainException
+// 2nd: HttpExceptionFilter         → catches HttpException
+// 3rd: AllHttpExceptionsFilter     → catches everything else → 500
+providers: [
+  { provide: APP_FILTER, useClass: AllHttpExceptionsFilter },
+  { provide: APP_FILTER, useClass: HttpExceptionFilter },
+  { provide: APP_FILTER, useClass: DomainHttpExceptionsFilter },
+],
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### 5. Soft Delete
 
-## Resources
+Never physically delete documents:
 
-Check out a few resources that may come in handy when working with NestJS:
+```typescript
+// Entity
+makeDeleted()
+{
+  if (this.deletedAt !== null) throw new DomainException({ ... });
+  this.deletedAt = new Date();
+}
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+// All queries filter deleted documents
+findById(id
+:
+string
+)
+{
+  return this.Model.findOne({ _id: id, deletedAt: null });
+}
+```
 
-## Support
+### 6. Creating Documents via Model (IMPORTANT)
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Always use injected Mongoose model, never call static methods on class directly:
 
-## Stay in touch
+```typescript
+// CORRECT - via injected model
+const newUser = this.UserModel.createdByAdmin(domainDto);
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+// WRONG - save() won't work
+const newUser = User.createdByAdmin(domainDto);
+```
 
-## License
+### 7. CQRS Migration (IN PROGRESS)
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Migrating from service pattern to use-case pattern. Modules like `Comments` and
+parts of `Auth` are already fully using CQRS.
+
+## DomainExceptionCode Enum
+
+```typescript
+export enum DomainExceptionCode {
+  // Common
+  NotFound = 1,
+  BadRequest = 2,
+  InternalServerError = 3,
+  Forbidden = 4,
+  ValidationError = 5,
+  // Auth
+  Unauthorized = 11,
+  EmailNotConfirmed = 12,
+  ConfirmationCodeExpired = 13,
+  PasswordRecoveryCodeExpired = 14,
+}
+```
+
+## Authentication
+
+### Refresh Token & Sessions
+
+Implemented using a secure `refreshToken` in an `httpOnly` cookie.
+
+- `POST /api/auth/login` — issues `accessToken` (body) and `refreshToken` (
+  cookie).
+- `POST /api/auth/refresh-token` — rotates tokens.
+- `POST /api/auth/logout` — invalidates the session and clears the cookie.
+- Device tracking is implemented via `Sessions` entity.
+
+### Guard Types
+
+```typescript
+@UseGuards(JwtAuthGuard)          // Required JWT - throws 401
+@UseGuards(JwtOptionalAuthGuard)  // Optional JWT - returns null if no token
+@UseGuards(BasicAuthGuard)        // Basic auth for admin endpoints
+@UseGuards(RefreshTokenAuthGuard) // Refresh token validation
+```
+
+### @Public() Decorator
+
+Used with BasicAuthGuard to skip auth on specific routes:
+
+```typescript
+
+@Controller('blogs')
+@UseGuards(BasicAuthGuard)
+export class BlogsController {
+  @Public()
+  @Get() // No auth required
+  getAll() {
+  }
+
+  @Post() // Requires Basic auth
+  createBlog() {
+  }
+}
+```
+
+## API Endpoints
+
+### Users (Basic Auth required for write operations)
+
+- `GET /api/users` — list with pagination
+- `GET /api/users/:id` — get by id
+- `POST /api/users` — create (admin only)
+- `DELETE /api/users/:id` — soft delete (admin only)
+
+### Blogs
+
+- `GET /api/blogs` — public
+- `GET /api/blogs/:id` — public
+- `GET /api/blogs/:blogId/posts` — public
+- `POST /api/blogs` — Basic Auth
+- `PUT /api/blogs/:id` — Basic Auth
+- `DELETE /api/blogs/:id` — Basic Auth
+- `POST /api/blogs/:blogId/posts` — create post for blog (Basic Auth)
+
+### Posts
+
+- `GET /api/posts` — public
+- `GET /api/posts/:id` — public
+- `GET /api/posts/:postId/comments` — public
+- `POST /api/posts` — Basic Auth
+- `PUT /api/posts/:id` — Basic Auth
+- `DELETE /api/posts/:id` — Basic Auth
+- `PUT /api/posts/:postId/like-status` — update post like status (JWT required)
+- `POST /api/posts/:postId/comments` — create comment for post (JWT required)
+
+### Comments
+
+- `GET /api/comments/:id` — public
+- `PUT /api/comments/:id` — JWT required
+- `DELETE /api/comments/:id` — JWT required
+- `PUT /api/comments/:id/like-status` — update comment like status (JWT
+  required)
+
+### Auth
+
+- `POST /api/auth/login` — issues tokens
+- `POST /api/auth/refresh-token` — rotates tokens
+- `POST /api/auth/logout` — clears session
+- `GET /api/auth/me` — JWT required
+- `POST /api/auth/registration` — public
+- `POST /api/auth/registration-confirmation` — public
+- `POST /api/auth/registration-email-resending` — public
+- `POST /api/auth/password-recovery` — public
+- `POST /api/auth/new-password` — public
+
+### Security Devices (Refresh Token required)
+
+- `GET /api/security/devices` — list all active sessions
+- `DELETE /api/security/devices` — terminate all other sessions
+- `DELETE /api/security/devices/:deviceId` — terminate specific session
+
+### Testing
+
+- `DELETE /api/testing/all-data` — clear all data (test env only)
+
+## Planned Features
+
+- [x] CQRS/UseCase migration (COMPLETED)
+- [x] Security Devices implementation (COMPLETED)
+- [ ] E2E tests expansion
+
+## Coding Conventions
+
+### Async/Await
+
+Always use async/await, never raw Promises.
+
+### TypeScript
+
+- Avoid `any` type - use proper types or `unknown`
+- Always specify return types on public methods
+- Use `as Type` casting only when necessary
+
+### Naming
+
+- Services: `UsersService`, `BlogsService`
+- Repositories: `UsersRepository`, `BlogsRepository`
+- Query Repositories: `UsersQueryRepository`
+- Use Cases: `CreateUserUseCase`, `DeleteBlogUseCase`
+- Commands: `CreateUserCommand`, `DeleteBlogCommand`
+- Queries: `GetUsersQuery`, `GetBlogByIdQuery`
+
+### Error Handling
+
+- Domain layer: throw `DomainException`
+- Service/UseCase layer: return `Result<T>`
+- Controller layer: use `handleResult(result)`
+- Never throw HTTP exceptions from domain or service layers
+
+### DTO Separation
+
+- `InputDto` — presentation layer (validation + swagger)
+- `DomainDto` — domain layer (no decorators)
+- `ViewDto` — response (mapToView static method)
+- `Command/Query` — application layer (implements interface)
+
+## Testing
+
+E2E tests using Jest + Supertest:
+test/
+helpers/
+init-settings.ts # App bootstrap for tests
+delete-all-data.ts # Clear DB between tests
+delay.ts # Timing utility
+users-test-manager.ts
+auth-test-manager.ts
+blogs-test-manager.ts
+posts-test-manager.ts
+comments-auth-manager.ts
+mock/
+email-service.mock.ts # Mock email (no real sending)
+blogs/
+blogs.e2e-spec.ts
+users/
+users.e2e-spec.ts
+auth.e2e-spec.ts
+posts.e2e-spec.ts
+comments.e2e-spec.ts
+
+### Test Conventions
+
+- `beforeAll` — bootstrap app once
+- `beforeEach` — clear DB before each test
+- `afterAll` — close app
+- Always use test managers for HTTP requests
+- Mock EmailService to avoid real email sending
+- Override ThrottlerGuard to avoid rate limiting in tests

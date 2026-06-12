@@ -6,6 +6,8 @@ import { deleteAllData } from './helpers/delete-all-data';
 import request from 'supertest';
 import { GLOBAL_PREFIX } from '../src/setup/global-prefix.setup';
 import { Server } from 'node:http';
+import { UserAccountsConfig } from '../src/modules/user_accounts/config/user-accounts.config';
+import { ACCESS_TOKEN_STRATEGY_INJECT_TOKEN } from '../src/modules/user_accounts/constants/auth-tokens.inject-constants';
 import { JwtService } from '@nestjs/jwt';
 
 describe('auth', () => {
@@ -15,13 +17,19 @@ describe('auth', () => {
 
   beforeAll(async () => {
     const result = await initSettings((moduleBuilder) =>
-      moduleBuilder.overrideProvider(JwtService).useValue(
-        new JwtService({
-          secret: 'access-token-secret',
-          signOptions: { expiresIn: '2s' }, // ← короткий срок для теста
+      moduleBuilder
+        .overrideProvider(ACCESS_TOKEN_STRATEGY_INJECT_TOKEN)
+        .useFactory({
+          factory: (userAccountsConfig: UserAccountsConfig) => {
+            return new JwtService({
+              secret: userAccountsConfig.accessTokenSecret,
+              signOptions: { expiresIn: '2s' },
+            });
+          },
+          inject: [UserAccountsConfig],
         }),
-      ),
     );
+
     app = result.app;
     authTestManager = result.authTestManager;
     usersTestManager = result.usersTestManager;

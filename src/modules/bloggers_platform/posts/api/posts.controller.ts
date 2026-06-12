@@ -11,8 +11,6 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { PostsService } from '../application/posts.service';
-import { PostsQueryService } from '../application/posts.query.service';
 import { PostViewDto } from './view-dto/post.view-dto';
 import { ApiParam } from '@nestjs/swagger';
 import { GetPostsQueryParams } from './input-dto/get-posts-query-params.input.dto';
@@ -35,12 +33,15 @@ import { ExtractUserIfExistsFromRequest } from '../../../user_accounts/guards/de
 import { GetCommentByPostIdQuery } from '../../comments/application/queries/get-comments-by-post.use-case';
 import { UpdateLikeStatusInputDto } from '../../likes/api/like.update-like-status.input-dto';
 import { UpdatePostLikeStatusCommand } from '../application/usecases/update-post-like-status.usecase';
+import { CreatePostCommand } from '../application/usecases/create-post.use-case';
+import { UpdatePostCommand } from '../application/usecases/update-post.use-case';
+import { DeletePostCommand } from '../application/usecases/delete-post.use-case';
+import { GetPostsQuery } from '../application/queries/get-posts.query-handler';
+import { GetPostByIdQuery } from '../application/queries/get-post-by-id.query-handler';
 
 @Controller('posts')
 export class PostsController {
   constructor(
-    private postsService: PostsService,
-    private postsQueryService: PostsQueryService,
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
   ) {}
@@ -52,7 +53,10 @@ export class PostsController {
     @Param('id') id: string,
     @ExtractUserIfExistsFromRequest() user: UserContextDto | null,
   ): Promise<PostViewDto> {
-    const result = await this.postsQueryService.findById(id, user?.id ?? null);
+    const result = await this.queryBus.execute<
+      GetPostByIdQuery,
+      Result<PostViewDto>
+    >(new GetPostByIdQuery(id, user?.id ?? null));
     return handleResult(result);
   }
 
@@ -62,7 +66,10 @@ export class PostsController {
     @Query() query: GetPostsQueryParams,
     @ExtractUserIfExistsFromRequest() user: UserContextDto | null,
   ): Promise<PaginatedViewDto<PostViewDto[]>> {
-    const result = await this.postsQueryService.getAll(query, user?.id ?? null);
+    const result = await this.queryBus.execute<
+      GetPostsQuery,
+      Result<PaginatedViewDto<PostViewDto[]>>
+    >(new GetPostsQuery(query, user?.id ?? null));
     return handleResult(result);
   }
 
@@ -74,14 +81,19 @@ export class PostsController {
     @Param('id') id: string,
     @Body() body: UpdatePostInputDto,
   ): Promise<void> {
-    const result = await this.postsService.updatePost(id, body);
+    const result = await this.commandBus.execute<UpdatePostCommand, Result>(
+      new UpdatePostCommand(id, body),
+    );
     handleResult(result);
   }
 
   @UseGuards(BasicAuthGuard)
   @Post()
   async createPost(@Body() body: CreatePostInputDto): Promise<PostViewDto> {
-    const result = await this.postsService.createPost(body);
+    const result = await this.commandBus.execute<
+      CreatePostCommand,
+      Result<PostViewDto>
+    >(new CreatePostCommand(body));
     return handleResult(result);
   }
 
@@ -90,7 +102,9 @@ export class PostsController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deletePost(@Param('id') id: string): Promise<void> {
-    const result = await this.postsService.deletePost(id);
+    const result = await this.commandBus.execute<DeletePostCommand, Result>(
+      new DeletePostCommand(id),
+    );
     handleResult(result);
   }
 

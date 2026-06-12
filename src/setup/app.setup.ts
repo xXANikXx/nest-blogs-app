@@ -7,6 +7,7 @@ export function appSetup(app: INestApplication, isSwaggerEnabled: boolean) {
   app.use(cookieParser());
 
   pipesSetup(app);
+  // globalPrefixSetup(app);
   if (isSwaggerEnabled) {
     swaggerSetup(app);
   }
